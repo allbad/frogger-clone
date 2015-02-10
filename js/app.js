@@ -20,10 +20,10 @@ Enemy.prototype.update = function(dt) {
     if (this.x > 700) {
         this.x = -125;
     }
-    var dist = this.speed * dt;
-    this.x += dist;
+    var move = this.speed * dt;
+    this.x += move;
 
-    this.isCollisions(this, player);
+    this.collision(this, player);
 }
 
 // Draw the enemy on the screen, required method for game
@@ -31,14 +31,13 @@ Enemy.prototype.render = function() {
     ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
 }
 
-Enemy.prototype.collision = function(enemy, player){
-    return !(enemy.x+70 < player.x || player.x+70 < enemy.x || enemy.y+70 < player.y || player.y+70 < enemy.y)
-}
-
-// If collision exists, reset player character to starting position
-Enemy.prototype.isCollisions = function(enemy, player) {
-    if (this.collision(enemy, player)) {
-        player.reset();
+Enemy.prototype.collision = function(enemy, player) {
+    if (enemy.x < player.x + player.width &&
+        enemy.x + enemy.width > player.x &&
+        enemy.y < player.y + player.height &&
+        enemy.height + enemy.y > player.y) {
+    // collision detected!
+    player.reset();
     }
 }
 
