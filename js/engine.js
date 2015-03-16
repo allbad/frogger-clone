@@ -23,7 +23,13 @@ var Engine = (function(global) {
         win = global.window,
         canvas = doc.createElement('canvas'),
         ctx = canvas.getContext('2d'),
+        statusboardElement = document.createElement("div"),
         lastTime;
+
+    // Add a div to display the statusboard.
+    statusboardElement.id = "statusboard";
+    statusboardElement.innerHTML = "Test statusboard";
+    doc.body.appendChild(statusboardElement);
 
     canvas.width = 707;
     canvas.height = 706;
@@ -39,13 +45,16 @@ var Engine = (function(global) {
          * would be the same for everyone (regardless of how fast their
          * computer is) - hurray time!
          */
+        var active = true
         var now = Date.now(),
             dt = (now - lastTime) / 1000.0;
 
         /* Call our update/render functions, pass along the time delta to
          * our update function since it may be used for smooth animation.
          */
+
         update(dt);
+
         render();
 
         /* Set our lastTime variable which is used to determine the time delta
@@ -64,8 +73,8 @@ var Engine = (function(global) {
      * game loop.
      */
     function init() {
-        reset();
         lastTime = Date.now();
+        reset();
         main();
     }
 
@@ -94,7 +103,10 @@ var Engine = (function(global) {
         allEnemies.forEach(function(enemy) {
             enemy.update(dt);
         });
-        player.update();
+        player.update(dt);
+        princess.update(dt);
+        gem.update();
+        statusboard.update();
     }
 
     /* This function initially draws the "game level", it will then call
@@ -114,17 +126,18 @@ var Engine = (function(global) {
                 'images/stone-block.png',   // Row 3 of 4 of stone
                 'images/stone-block.png',   // Row 4 of 4 of stone
                 'images/grass-block.png',   // Row 1 of 2 of grass
-                'images/grass-block.png'    // Row 2 of 2 of grass
+                'images/grass-block.png',   // Row 2 of 2 of grass
+                'images/small-stone.png'
             ],
             numRows = 7,
             numCols = 7,
             row, col;
-
         /* Loop through the number of rows and columns we've defined above
          * and, using the rowImages array, draw the correct image for that
          * portion of the "grid"
          */
         for (row = 0; row < numRows; row++) {
+
             for (col = 0; col < numCols; col++) {
                 /* The drawImage function of the canvas' context element
                  * requires 3 parameters: the image to draw, the x coordinate
@@ -136,7 +149,7 @@ var Engine = (function(global) {
                 ctx.drawImage(Resources.get(rowImages[row]), col * 101, row * 83);
             }
         }
-
+        ctx.drawImage(Resources.get(rowImages[7]), 303, 0);
 
         renderEntities();
     }
@@ -154,6 +167,10 @@ var Engine = (function(global) {
         });
 
         player.render();
+
+        princess.render();
+
+        gem.render();
     }
 
     /* This function does nothing but it could have been a good place to
@@ -161,8 +178,8 @@ var Engine = (function(global) {
      * those sorts of things. It's only called once by the init() method.
      */
     function reset() {
-        // noop
     }
+
 
     /* Go ahead and load all of the images we know we're going to need to
      * draw our game level. Then set init as the callback method, so that when
@@ -173,7 +190,15 @@ var Engine = (function(global) {
         'images/water-block.png',
         'images/grass-block.png',
         'images/enemy-bug.png',
-        'images/char-boy.png'
+        'images/char-boy.png',
+        'images/char-princess-girl.png',
+        'images/char-cat-girl.png',
+        'images/small-stone.png',
+        'images/Key.png',
+        'images/Gem Orange.png',
+        'images/Gem Green.png',
+        'images/Gem Blue.png',
+        'images/gem-boy.png'
     ]);
     Resources.onReady(init);
 
@@ -182,4 +207,7 @@ var Engine = (function(global) {
      * from within their app.js files.
      */
     global.ctx = ctx;
+
+    // Provide access to the statusboard element through the global variable
+    global.statusboardElement = statusboardElement;
 })(this);
