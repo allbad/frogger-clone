@@ -6,29 +6,39 @@ var CHAR_WIDTH = 70,
     H_SPEED = 101,
     V_SPEED = 83,
     OOB_RIGHT = 700,
-    OOB_LEFT = -125;
+    OOB_LEFT = -125,
+    CANVAS_OFFSET = 60,
+    COLUMNS = 7,
+    ROWS = 4;
 
 //---------------
 // gameVariables
 //---------------
 var score = 0,
     lives = 3,
+    enemies = 5,
     posY = [60, 143, 226, 309], // An Array of Y positions for gems
-    posX = [0, 101, 202, 303, 404, 505, 606, 707], // An Array of X positions for gems
-    randX = posX[Math.floor(Math.random() * 7)],
-    randY = posY[Math.floor(Math.random() * 4)],
+    posX = [0, 101, 202, 303, 404, 505, 606], // An Array of X positions for gems
     gotGem = false,
     gameOver = false,
     gemSprites = ['images/Gem Orange.png', // An Array of gem sprites
     'images/Gem Blue.png',
     'images/Gem Green.png'];
 
+var randX = function () {
+    return posX[Math.floor(Math.random() * posX.length)];
+}
+var randY = function () {
+    return posX[Math.floor(Math.random() * posY.length)];
+}
+
 //-----------------
 // ACTOR PROTOTYPE
 //-----------------
-var Actor = function(x, y){
+var Actor = function(x, y, sprite, CHAR_WIDTH, CHAR_HEIGHT){
     this.x = x;
     this.y = y;
+    this.sprite = sprite;
     this.width = CHAR_WIDTH;
     this.height = CHAR_HEIGHT;
 }
@@ -45,12 +55,10 @@ Actor.prototype.render = function() {
 var Enemy = function(x, y) {
     // The image/sprite for our enemies, this uses
     // a helper we've provided to easily load images
-    this.sprite = 'images/enemy-bug.png';
-    Actor.call(this, x, y);
+    Actor.call(this, x, y, 'images/enemy-bug.png', CHAR_WIDTH, CHAR_HEIGHT);
     this.speed = Math.random() * (300 - 60) + 60;
-    this.width = CHAR_WIDTH;
-    this.height = CHAR_WIDTH;
 }
+// Inherit method functions from Actor
 Enemy.prototype = Object.create(Actor.prototype);
 Enemy.prototype.constructor = Enemy;
 // Update the enemy's position using dt (time delta between) ticks
@@ -84,10 +92,7 @@ Enemy.prototype.collision = function(enemy, player) {
 // PRINCESS
 //----------
 var Princess = function(x, y) {
-    Actor.call(this, x, y);
-    this.width = CHAR_WIDTH;
-    this.height = CHAR_HEIGHT;
-    this.sprite = 'images/char-cat-girl.png';
+    Actor.call(this, x, y, 'images/char-cat-girl.png', CHAR_WIDTH, CHAR_HEIGHT);
 }
 Princess.prototype = Object.create(Actor.prototype);
 Princess.prototype.constructor = Princess;
@@ -117,45 +122,46 @@ Princess.prototype.collision = function(princess, player) {
 // PLAYER
 //--------
 var Player = function(x, y) {
-    Actor.call(this, x, y);
-    this.sprite = 'images/char-boy.png';
+    Actor.call(this, x, y, 'images/char-boy.png', CHAR_WIDTH, CHAR_HEIGHT);
     // player moves in jumps of one block per turn
     this.hspeed = H_SPEED;
     this.vspeed = V_SPEED;
-    this.width = CHAR_WIDTH;
-    this.height = CHAR_HEIGHT;
 }
 Player.prototype = Object.create(Actor.prototype);
 Player.prototype.constructor = Player;
 Player.prototype.handleInput = function(allowedKeys) {
-    switch (allowedKeys) {
-        case 'left':
-            if (this.x > 50) {
-                this.x -= this.hspeed;
+    if (!gameOver) {
+        switch (allowedKeys) {
+            case 'left':
+                if (this.x > 50) {
+                    this.x -= this.hspeed;
+                }
+                break;
+            case 'right':
+                if (this.x < 550) {
+                    this.x += this.hspeed;
+                }
+                break;
+            case 'up':
+                if (this.y > 50) {
+                    this.y -= this.vspeed;
+                } else {
+                    this.reset();
+                }
+                break;
+            case 'down':
+                if (this.y < 450) {
+                    this.y += this.vspeed;
+                }
+                break;
+            case 'pause':
+                active = false;
+                console.log('Pause');
+                break;
             }
-            break;
-        case 'right':
-            if (this.x < 550) {
-                this.x += this.hspeed;
-            }
-            break;
-        case 'up':
-            if (this.y > 50) {
-                this.y -= this.vspeed;
-            } else {
-                this.reset();
-            }
-            break;
-        case 'down':
-            if (this.y < 450) {
-                this.y += this.vspeed;
-            }
-            break;
-        case 'pause':
-            active = false;
-            console.log('Pause');
-            break;
-    }
+        } else if (this.key=="space") {
+            resetGame();
+        }
 }
 // Action to take on player's death
 Player.prototype.death = function() {
@@ -208,7 +214,7 @@ Player.prototype.lostGame = function() {
 }
 // Game Over
 Player.prototype.gameOver = function() {
-    gameOver = true
+    gameOver = true;
     // Move player to start position
     this.reset();
     //Stop player from moving
@@ -248,8 +254,8 @@ Gem.prototype.collision = function(gem, player) {
 }
 Gem.prototype.itemReset = function() {
     // Resets the item on the map where player can grab it
-    this.x = randX;
-    this.y = randY;
+    this.x = randX();
+    this.y = posY[Math.floor(Math.random() * posY.length)];
 }
 
 //-------------------
@@ -268,15 +274,19 @@ Statusboard.prototype.update = function() {
 //---------------------
 // instantiate objects
 //---------------------
-var allEnemies = [
-    new Enemy(posX[Math.floor(Math.random() * 7)], 60),
-    new Enemy(posX[Math.floor(Math.random() * 7)], 60),
-    new Enemy(posX[Math.floor(Math.random() * 7)], 143),
-    new Enemy(posX[Math.floor(Math.random() * 7)], 226),
-    new Enemy(posX[Math.floor(Math.random() * 7)], 309)
-    ];
 
-var princess = new Princess(303, -8, 'images/char-cat-girl.png');
+//Function to initiate enemies
+function createEnemies() {
+    for (var i = 0; i < enemies; i++) {
+        var newEnemy = new Enemy(randX(),CANVAS_OFFSET+(i%4)*V_SPEED);
+        allEnemies.push(newEnemy);
+    }
+};
+
+var allEnemies = [];
+createEnemies();
+
+var princess = new Princess(303, -8);
 
 var player = new Player(303, 487);
 
@@ -284,6 +294,17 @@ var gem = new Gem('images/Gem Orange.png');
 
 var statusboard = new Statusboard();
 
+
+//reset game function - resets lives, points, creates enemies and hearts
+function resetGame() {
+document.getElementById("gameOverBanner").remove();
+document.getElementById("gameOverText").remove();
+gameOver = false;
+player.reset();
+lives = 3;
+score = 0;
+createEnemies();
+};
 
 // This listens for key presses and sends the keys to your
 // Player.handleInput() method. You don't need to modify this.
@@ -293,9 +314,8 @@ document.addEventListener('keyup', function(e) {
         38: 'up',
         39: 'right',
         40: 'down',
-        80: 'pause'
+        80: 'pause',
+        32: 'space'
     };
-    if (!gameOver) {
         player.handleInput(allowedKeys[e.keyCode]);
-    }
 });
