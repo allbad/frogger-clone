@@ -3,39 +3,46 @@
 //----------------
 var CHAR_WIDTH = 70,
     CHAR_HEIGHT = 70,
-    H_SPEED = 101,
-    V_SPEED = 83,
-    OOB_RIGHT = 700,
-    OOB_LEFT = -125,
-    CANVAS_OFFSET = 60,
+    TILE_WIDTH = 101,
+    TILE_HEIGHT = 83,
+    STAGE_RIGHT = 707,
+    STAGE_LEFT = -100,
     COLUMNS = 7,
-    ROWS = 4;
+    ROWS = 4,
+    FONT = 'Nosifer',
+    FONT_SIZES = ['20px', '40px', '14px'],
+    COLOURS = ['#c51e1e', '#fff']
 
 //---------------
 // gameVariables
 //---------------
 var score = 0,
     lives = 3,
-    enemies = 5,
-    posY = [60, 143, 226, 309], // An Array of Y positions for gems
-    posX = [0, 101, 202, 303, 404, 505, 606], // An Array of X positions for gems
+    enemies = 6,
+    posY = [60, 143, 226, 309],
+    posX = [0, 101, 202, 303, 404, 505, 606],
+    displayGem = true,
     gotGem = false,
+    wonGame = false,
+    intro = true,
+    introDisplayed = false;
     gameOver = false,
-    gemSprites = ['images/Gem Orange.png', // An Array of gem sprites
-    'images/Gem Blue.png',
-    'images/Gem Green.png'];
+    gameOverDisplayed = false;
 
 var randX = function () {
     return posX[Math.floor(Math.random() * posX.length)];
 }
 var randY = function () {
-    return posX[Math.floor(Math.random() * posY.length)];
+    return posY[Math.floor(Math.random() * posY.length)];
+}
+var enemySpeed = function() {
+    return Math.random() * (300 - 60) + 60;
 }
 
-//-----------------
-// ACTOR PROTOTYPE
-//-----------------
-var Actor = function(x, y, sprite, CHAR_WIDTH, CHAR_HEIGHT){
+//-------------
+// ACTOR CLASS
+//-------------
+var Actor = function(x, y, sprite, CHAR_WIDTH, CHAR_HEIGHT) {
     this.x = x;
     this.y = y;
     this.sprite = sprite;
@@ -56,21 +63,21 @@ var Enemy = function(x, y) {
     // The image/sprite for our enemies, this uses
     // a helper we've provided to easily load images
     Actor.call(this, x, y, 'images/enemy-bug.png', CHAR_WIDTH, CHAR_HEIGHT);
-    this.speed = Math.random() * (300 - 60) + 60;
+    this.speed = enemySpeed();
 }
 // Inherit method functions from Actor
 Enemy.prototype = Object.create(Actor.prototype);
 Enemy.prototype.constructor = Enemy;
 // Update the enemy's position using dt (time delta between) ticks
 Enemy.prototype.update = function(dt) {
-    //when the enemy moves out of bounds on right edge
-    //put him back on the left
-    if (this.x > OOB_RIGHT) {
-        this.x = OOB_LEFT;
+    //when the enemy exits stage right put it back on stage left
+    if (this.x > STAGE_RIGHT) {
+        this.x = STAGE_LEFT;
+        //and randomise the row it comes back on (just to be extra sneaky)
+        this.y = randY();
     }
-    // multiply movement by the dt parameter
-    // which will ensure the game runs at the same speed for
-    // all computers.
+    // multiply movement by the dt parameter which will
+    // ensure the game runs at the same speed for all computers.
     var move = this.speed * dt;
     this.x += move;
     //run collision method to check collision with player
@@ -123,12 +130,13 @@ Princess.prototype.collision = function(princess, player) {
 //--------
 var Player = function(x, y) {
     Actor.call(this, x, y, 'images/char-boy.png', CHAR_WIDTH, CHAR_HEIGHT);
-    // player moves in jumps of one block per turn
-    this.hspeed = H_SPEED;
-    this.vspeed = V_SPEED;
+    // player moves in jumps of one tile per turn
+    this.hspeed = TILE_WIDTH;
+    this.vspeed = TILE_HEIGHT;
 }
 Player.prototype = Object.create(Actor.prototype);
 Player.prototype.constructor = Player;
+// keyboard input method to move player
 Player.prototype.handleInput = function(allowedKeys) {
     if (!gameOver) {
         switch (allowedKeys) {
@@ -154,44 +162,41 @@ Player.prototype.handleInput = function(allowedKeys) {
                     this.y += this.vspeed;
                 }
                 break;
-            case 'pause':
-                active = false;
-                console.log('Pause');
-                break;
             }
-        } else if (this.key=="space") {
-            resetGame();
         }
 }
 // Action to take on player's death
 Player.prototype.death = function() {
+    //TODO change sprite to a splat image e.g.
+    //this.sprite = 'images/splat.png';
+
     // Take away a life
     lives--;
-    // Update the status board
-    statusboard.message = "Lives: " + lives + " -- Score: " + score;;
     // Return player to the start
     this.reset();
     // Set gem status back to default
     gem.itemReset();
     // If too many deaths then lose the game
     if (lives < 1) {
-        this.lostGame();
+        wonGame = false;
+        gameOver = true;
     }
 }
 // Action to take when player reaches the princess with a gem
 Player.prototype.bonus = function() {
     //TODO - add a life
+    //TODO - Add a (another) small gem image next to the princess
+
     // Reset gem status to default
     gem.itemReset();
     // Increase score by 10
-    score = score+10;
-    // Update status board
-    statusboard.message = "Lives: " + lives + " -- Score: " + score;
+    score += 10;
     // Return player to the start
     this.reset();
     // If you get 5 gems you have won
     if (score == 50) {
-        this.wonGame();
+        wonGame = true;
+        gameOver = true;
     }
 }
 // Set player back to start
@@ -199,28 +204,6 @@ Player.prototype.reset = function() {
     this.x = 303;
     this.y = 487;
     this.sprite = 'images/char-boy.png';
-}
-// Action to take when player wins
-Player.prototype.wonGame = function() {
-    // Let user know they won the game
-    statusboard.message = "YOU WIN";
-    this.gameOver();
-}
-// Action to take when player loses
-Player.prototype.lostGame = function() {
-    // Let user know they lost the game
-    statusboard.message = "GAME OVER";
-    this.gameOver();
-}
-// Game Over
-Player.prototype.gameOver = function() {
-    gameOver = true;
-    // Move player to start position
-    this.reset();
-    //Stop player from moving
-    //document.removeEventListener('keyup', passKeyUpValue);
-    // Remove the enemies
-    allEnemies = [];
 }
 
 //------
@@ -246,29 +229,18 @@ Gem.prototype.collision = function(gem, player) {
     // collision detected!
     gotGem = true;
     console.log(gotGem);
-    this.x = 1000;
-    this.y = 1000;
+    displayGem = false;
+    //this.x = 1000;
+    //this.y = 1000;
     //player 'collects' gem
     player.sprite = 'images/gem-boy.png';
     }
 }
 Gem.prototype.itemReset = function() {
     // Resets the item on the map where player can grab it
+    displayGem = true;
     this.x = randX();
-    this.y = posY[Math.floor(Math.random() * posY.length)];
-}
-
-//-------------------
-// statusboard class
-//-------------------
-
-// Display lives and messages
-var Statusboard = function() {
-    this.message = "Lives: " + lives + " -- Score: " + score;
-}
-// Update the statusboard
-Statusboard.prototype.update = function() {
-    statusboardElement.innerHTML = this.message;
+    this.y = randY();
 }
 
 //---------------------
@@ -278,7 +250,7 @@ Statusboard.prototype.update = function() {
 //Function to initiate enemies
 function createEnemies() {
     for (var i = 0; i < enemies; i++) {
-        var newEnemy = new Enemy(randX(),CANVAS_OFFSET+(i%4)*V_SPEED);
+        var newEnemy = new Enemy(randX(),randY());
         allEnemies.push(newEnemy);
     }
 };
@@ -292,20 +264,6 @@ var player = new Player(303, 487);
 
 var gem = new Gem('images/Gem Orange.png');
 
-var statusboard = new Statusboard();
-
-
-//reset game function - resets lives, points, creates enemies and hearts
-function resetGame() {
-document.getElementById("gameOverBanner").remove();
-document.getElementById("gameOverText").remove();
-gameOver = false;
-player.reset();
-lives = 3;
-score = 0;
-createEnemies();
-};
-
 // This listens for key presses and sends the keys to your
 // Player.handleInput() method. You don't need to modify this.
 document.addEventListener('keyup', function(e) {
@@ -314,8 +272,6 @@ document.addEventListener('keyup', function(e) {
         38: 'up',
         39: 'right',
         40: 'down',
-        80: 'pause',
-        32: 'space'
     };
         player.handleInput(allowedKeys[e.keyCode]);
 });
