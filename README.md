@@ -1,12 +1,14 @@
 # My Frogger Clone - Bug Splat
+Play the game at [http://allbad.github.io/frogger-clone](http://allbad.github.io/frogger-clone)
+
 ## Instructions
 
 ### It's simple really ...
 
 * Get the gems.  Get them to the princess
 * Beware of the enemy bugs in the way
-* Don't even think of getting to the princess without a gem
-* TODO - If you fall in the water you spill the gem. Back to the start with you.
+* Don't even think of getting to the princess without a gem.  She'll send you packing back to the start
+* TODO - If you fall in the water you spill the gem. Back to the start with you
 
 * Left/right/up/down keys to move your would be bug prince
 
