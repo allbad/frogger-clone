@@ -1,105 +1,268 @@
-// Enemies our player must avoid
-var Enemy = function(x, y) {
-    // Variables applied to each of our instances go here,
-    // we've provided one for you to get started
+//----------------
+// GAME_CONSTANTS
+//----------------
+var CHAR_WIDTH = 70,
+    CHAR_HEIGHT = 70,
+    TILE_WIDTH = 101,
+    TILE_HEIGHT = 83,
+    STAGE_RIGHT = 707,
+    STAGE_LEFT = -100,
+    COLUMNS = 7,
+    ROWS = 4,
+    FONT = 'Nosifer',
+    FONT_SIZES = ['20px', '40px', '14px'],
+    COLOURS = ['#c51e1e', '#fff']
 
-    // The image/sprite for our enemies, this uses
-    // a helper we've provided to easily load images
-    this.sprite = 'images/enemy-bug.png';
+//---------------
+// gameVariables
+//---------------
+var score = 0,
+    lives = 3,
+    enemies = 6,
+    posY = [60, 143, 226, 309],
+    posX = [0, 101, 202, 303, 404, 505, 606],
+    displayGem = true,
+    gotGem = false,
+    wonGame = false,
+    intro = true,
+    introDisplayed = false;
+    gameOver = false,
+    gameOverDisplayed = false;
+
+var randX = function () {
+    return posX[Math.floor(Math.random() * posX.length)];
+}
+var randY = function () {
+    return posY[Math.floor(Math.random() * posY.length)];
+}
+var enemySpeed = function() {
+    return Math.random() * (300 - 60) + 60;
+}
+
+//-------------
+// ACTOR CLASS
+//-------------
+var Actor = function(x, y, sprite, CHAR_WIDTH, CHAR_HEIGHT) {
     this.x = x;
     this.y = y;
-    this.speed = Math.random() * (300 - 60) + 60;
+    this.sprite = sprite;
+    this.width = CHAR_WIDTH;
+    this.height = CHAR_HEIGHT;
 }
-
-// Update the enemy's position, required method for game
-// Parameter: dt, a time delta between ticks
-Enemy.prototype.update = function(dt) {
-    // You should multiply any movement by the dt parameter
-    // which will ensure the game runs at the same speed for
-    // all computers.
-    if (this.x > 700) {
-        this.x = -125;
-    }
-    var move = this.speed * dt;
-    this.x += move;
-
-    this.collision(this, player);
+Actor.prototype.update = function(dt) {
 }
-
-// Draw the enemy on the screen, required method for game
-Enemy.prototype.render = function() {
+// draw the actor on the screen
+Actor.prototype.render = function() {
     ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
 }
 
+//---------
+// ENEMIES
+//---------
+var Enemy = function(x, y) {
+    // The image/sprite for our enemies, this uses
+    // a helper we've provided to easily load images
+    Actor.call(this, x, y, 'images/enemy-bug.png', CHAR_WIDTH, CHAR_HEIGHT);
+    this.speed = enemySpeed();
+}
+// Inherit method functions from Actor
+Enemy.prototype = Object.create(Actor.prototype);
+Enemy.prototype.constructor = Enemy;
+// Update the enemy's position using dt (time delta between) ticks
+Enemy.prototype.update = function(dt) {
+    //when the enemy exits stage right put it back on stage left
+    if (this.x > STAGE_RIGHT) {
+        this.x = STAGE_LEFT;
+        //and randomise the row it comes back on (just to be extra sneaky)
+        this.y = randY();
+    }
+    // multiply movement by the dt parameter which will
+    // ensure the game runs at the same speed for all computers.
+    var move = this.speed * dt;
+    this.x += move;
+    //run collision method to check collision with player
+    this.collision(this, player);
+}
+// Collision detection method
+//TODO - figure out how to reduce duplication of this code
 Enemy.prototype.collision = function(enemy, player) {
     if (enemy.x < player.x + player.width &&
         enemy.x + enemy.width > player.x &&
         enemy.y < player.y + player.height &&
         enemy.height + enemy.y > player.y) {
-    // collision detected!
-    player.reset();
+    // collision detected, player loses life
+    player.death();
     }
 }
 
-// Now write your own player class
-// This class requires an update(), render() and
-// a handleInput() method.
-var Player = function(x, y) {
-    this.sprite = 'images/char-boy.png';
-    this.x = x;
-    this.y = y;
-    this.hspeed = 101;
-    this.vspeed = 83;
+//----------
+// PRINCESS
+//----------
+var Princess = function(x, y) {
+    Actor.call(this, x, y, 'images/char-cat-girl.png', CHAR_WIDTH, CHAR_HEIGHT);
 }
-Player.prototype.update = function(dt) {
+Princess.prototype = Object.create(Actor.prototype);
+Princess.prototype.constructor = Princess;
+Princess.prototype.update = function(dt) {
+    this.collision(this, player);
 }
-Player.prototype.render = function() {
-    ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
-}
-Player.prototype.handleInput = function(allowedKeys) {
-    switch (allowedKeys) {
-        case 'left':
-            if (this.x > 50) {
-                this.x -= this.hspeed;
-            }
-            break;
-        case 'right':
-            if (this.x < 550) {
-                this.x += this.hspeed;
-            }
-            break;
-        case 'up':
-            if (this.y > 50) {
-                this.y -= this.vspeed;
-            } else {
-                this.reset();
-            }
-            break;
-        case 'down':
-            if (this.y < 450) {
-                this.y += this.vspeed;
-            }
-            break;
+Princess.prototype.collision = function(princess, player) {
+    if (princess.x < player.x + player.width &&
+        princess.x + princess.width > player.x &&
+        princess.y < player.y + player.height &&
+        princess.height + princess.y > player.y) {
+        //check if a gem has been collected
+        if (gotGem) {
+            // player gets points
+            player.bonus();
+        } else {
+            // player gets sent home
+            player.reset();
+        }
+        // reset gem status.  player needs more gems
+        gotGem = false;
+        console.log(gotGem);
     }
 }
+
+//--------
+// PLAYER
+//--------
+var Player = function(x, y) {
+    Actor.call(this, x, y, 'images/char-boy.png', CHAR_WIDTH, CHAR_HEIGHT);
+    // player moves in jumps of one tile per turn
+    this.hspeed = TILE_WIDTH;
+    this.vspeed = TILE_HEIGHT;
+}
+Player.prototype = Object.create(Actor.prototype);
+Player.prototype.constructor = Player;
+// keyboard input method to move player
+Player.prototype.handleInput = function(allowedKeys) {
+    if (!gameOver) {
+        switch (allowedKeys) {
+            case 'left':
+                if (this.x > 50) {
+                    this.x -= this.hspeed;
+                }
+                break;
+            case 'right':
+                if (this.x < 550) {
+                    this.x += this.hspeed;
+                }
+                break;
+            case 'up':
+                if (this.y > 50) {
+                    this.y -= this.vspeed;
+                } else {
+                    this.reset();
+                }
+                break;
+            case 'down':
+                if (this.y < 450) {
+                    this.y += this.vspeed;
+                }
+                break;
+            }
+        }
+}
+// Action to take on player's death
+Player.prototype.death = function() {
+    //TODO change sprite to a splat image e.g.
+    //this.sprite = 'images/splat.png';
+
+    // Take away a life
+    lives--;
+    // Return player to the start
+    this.reset();
+    // Set gem status back to default
+    gem.itemReset();
+    // If too many deaths then lose the game
+    if (lives < 1) {
+        wonGame = false;
+        gameOver = true;
+    }
+}
+// Action to take when player reaches the princess with a gem
+Player.prototype.bonus = function() {
+    //TODO - add a life
+    //TODO - Add a (another) small gem image next to the princess
+
+    // Reset gem status to default
+    gem.itemReset();
+    // Increase score by 10
+    score += 10;
+    // Return player to the start
+    this.reset();
+    // If you get 5 gems you have won
+    if (score == 50) {
+        wonGame = true;
+        gameOver = true;
+    }
+}
+// Set player back to start
 Player.prototype.reset = function() {
     this.x = 303;
     this.y = 487;
+    this.sprite = 'images/char-boy.png';
 }
 
-// Now instantiate your objects.
-// Place all enemy objects in an array called allEnemies
-// Place the player object in a variable called player
-var allEnemies = [
-    new Enemy(Math.random() * (600 - 100) + 100, 60),
-    new Enemy(Math.random() * (600 - 100) + 100, 60),
-    new Enemy(Math.random() * (600 - 100) + 100, 143),
-    new Enemy(Math.random() * (600 - 100) + 100, 226),
-    new Enemy(Math.random() * (600 - 100) + 100, 309)
-    ];
+//------
+// GEMS
+//------
+var Gem = function(sprite) {
+    this.width = CHAR_WIDTH;
+    this.height = CHAR_HEIGHT;
+    this.sprite = sprite;
+    this.itemReset(); // Sets the random position of a gem
+}
+Gem.prototype.render = function() {
+    ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
+}
+Gem.prototype.update = function() {
+    this.collision(this, player);
+}
+Gem.prototype.collision = function(gem, player) {
+    if (gem.x < player.x + player.width &&
+        gem.x + gem.width > player.x &&
+        gem.y < player.y + player.height &&
+        gem.height + gem.y > player.y) {
+    // collision detected!
+    gotGem = true;
+    console.log(gotGem);
+    displayGem = false;
+    //this.x = 1000;
+    //this.y = 1000;
+    //player 'collects' gem
+    player.sprite = 'images/gem-boy.png';
+    }
+}
+Gem.prototype.itemReset = function() {
+    // Resets the item on the map where player can grab it
+    displayGem = true;
+    this.x = randX();
+    this.y = randY();
+}
+
+//---------------------
+// instantiate objects
+//---------------------
+
+//Function to initiate enemies
+function createEnemies() {
+    for (var i = 0; i < enemies; i++) {
+        var newEnemy = new Enemy(randX(),randY());
+        allEnemies.push(newEnemy);
+    }
+};
+
+var allEnemies = [];
+createEnemies();
+
+var princess = new Princess(303, -8);
 
 var player = new Player(303, 487);
 
+var gem = new Gem('images/Gem Orange.png');
 
 // This listens for key presses and sends the keys to your
 // Player.handleInput() method. You don't need to modify this.
@@ -108,8 +271,7 @@ document.addEventListener('keyup', function(e) {
         37: 'left',
         38: 'up',
         39: 'right',
-        40: 'down'
+        40: 'down',
     };
-
-    player.handleInput(allowedKeys[e.keyCode]);
+        player.handleInput(allowedKeys[e.keyCode]);
 });

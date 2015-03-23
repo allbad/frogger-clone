@@ -14,7 +14,7 @@
  * a little simpler to work with.
  */
 
-var Engine = (function(global) {
+var Engine = (function (global) {
     /* Predefine the variables we'll be using within this scope,
      * create the canvas element, grab the 2D context for that canvas
      * set the canvas elements height/width and add it to the DOM.
@@ -42,11 +42,36 @@ var Engine = (function(global) {
         var now = Date.now(),
             dt = (now - lastTime) / 1000.0;
 
-        /* Call our update/render functions, pass along the time delta to
+        /* MODIFIED - Call our update/render functions, pass along the time delta to
          * our update function since it may be used for smooth animation.
          */
-        update(dt);
-        render();
+
+        /* ADDED - If the game is over, display the gameover screen
+         * and wait for key press from the user to restart
+         */
+         if (gameOver) {
+
+            if (!gameOverDisplayed) {
+                displayGameOverScreen();
+                gameOverDisplayed = true;
+                doc.addEventListener('keyup', gameOverKeyupListener);
+            }
+        /* ADDED - Otherwise if the game is at intro stage, display the intro screen
+         * and wait for key press from the user to start
+         */
+        } else if (intro) {
+            if (!introDisplayed) {
+                displayIntroScreen();
+                introDisplayed = true;
+                doc.addEventListener('keyup', introKeyupListener);
+            }
+        /* ADDED - Otherwise do normal game update and render with score at bottom
+         */
+        } else {
+            update(dt);
+            render();
+            ctx.fillText("Lives: " + lives + " -- Score: " + score, canvas.width / 2, 655);
+        }
 
         /* Set our lastTime variable which is used to determine the time delta
          * for the next time this function is called.
@@ -57,15 +82,16 @@ var Engine = (function(global) {
          * function again as soon as the browser is able to draw another frame.
          */
         win.requestAnimationFrame(main);
-    };
+    }
 
     /* This function does some initial setup that should only occur once,
      * particularly setting the lastTime variable that is required for the
      * game loop.
      */
     function init() {
-        reset();
         lastTime = Date.now();
+        gameOver = false;
+        gameOverDisplayed = false;
         main();
     }
 
@@ -91,10 +117,12 @@ var Engine = (function(global) {
      * render methods.
      */
     function updateEntities(dt) {
-        allEnemies.forEach(function(enemy) {
+        allEnemies.forEach(function (enemy) {
             enemy.update(dt);
         });
-        player.update();
+        player.update(dt);
+        princess.update(dt);
+        gem.update();
     }
 
     /* This function initially draws the "game level", it will then call
@@ -104,7 +132,7 @@ var Engine = (function(global) {
      * they are just drawing the entire screen over and over.
      */
     function render() {
-        /* This array holds the relative URL to the image used
+        /* MODIFIED This array holds the relative URL to the image used
          * for that particular row of the game level.
          */
         var rowImages = [
@@ -114,17 +142,19 @@ var Engine = (function(global) {
                 'images/stone-block.png',   // Row 3 of 4 of stone
                 'images/stone-block.png',   // Row 4 of 4 of stone
                 'images/grass-block.png',   // Row 1 of 2 of grass
-                'images/grass-block.png'    // Row 2 of 2 of grass
+                'images/grass-block.png',   // Row 2 of 2 of grass
+                'images/small-stone.png'
             ],
             numRows = 7,
             numCols = 7,
-            row, col;
-
+            row,
+            col;
         /* Loop through the number of rows and columns we've defined above
          * and, using the rowImages array, draw the correct image for that
          * portion of the "grid"
          */
         for (row = 0; row < numRows; row++) {
+
             for (col = 0; col < numCols; col++) {
                 /* The drawImage function of the canvas' context element
                  * requires 3 parameters: the image to draw, the x coordinate
@@ -136,7 +166,8 @@ var Engine = (function(global) {
                 ctx.drawImage(Resources.get(rowImages[row]), col * 101, row * 83);
             }
         }
-
+        //  draw an extra stone block to put the princess on
+        ctx.drawImage(Resources.get(rowImages[7]), 303, 0);
 
         renderEntities();
     }
@@ -149,19 +180,84 @@ var Engine = (function(global) {
         /* Loop through all of the objects within the allEnemies array and call
          * the render function you have defined.
          */
-        allEnemies.forEach(function(enemy) {
+        allEnemies.forEach(function (enemy) {
             enemy.render();
         });
 
         player.render();
+
+        princess.render();
+
+        if (displayGem) {
+            gem.render();
+        }
     }
 
-    /* This function does nothing but it could have been a good place to
-     * handle game reset states - maybe a new game menu or a game over screen
-     * those sorts of things. It's only called once by the init() method.
+    /* MODIFIED - This function handles game reset
+     *  by clearing the canvas and resetting score/lives
      */
     function reset() {
-        // noop
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        lives = 3;
+        score = 0;
+        init();
+    }
+    /* ADDED - Helper function to overlay the intro and gameover screens
+     * with red background and centred white text
+     */
+    function overlayScreen() {
+        ctx.font = FONT_SIZES[2] + ' ' + FONT;
+        ctx.fillStyle = COLOURS[0];
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = COLOURS[1];
+        ctx.textAlign = 'center';
+    }
+
+    /*
+     * ADDED - Function to display instruction text on top of canvas overlay
+     */
+    function displayIntroScreen() {
+        overlayScreen();
+        ctx.fillText("Instructions for the game!", canvas.width / 2, 2 * TILE_HEIGHT);
+        ctx.fillText("The object of the game is to grab gems and take", canvas.width / 2, 3 * TILE_HEIGHT);
+        ctx.fillText("them to the princess.  Beware of the enemy bugs.", canvas.width / 2, 3.5 * TILE_HEIGHT);
+        ctx.fillText("Don't even think of getting to the princess without her gems.", canvas.width / 2, 4 * TILE_HEIGHT);
+        ctx.fillText("left/right/up/down keys to move player", canvas.width / 2, 5 * TILE_HEIGHT);
+        ctx.fillText("Press any key to Start", canvas.width / 2, 6 * TILE_HEIGHT);
+    }
+    /*
+     * ADDED - Listen for a key release to end the intro section
+     * clear the canvas and and start the game
+     */
+    function introKeyupListener(e) {
+        intro = false;
+        doc.removeEventListener('keyup', introKeyupListener);
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        main();
+    }
+    /*
+     * ADDED - Function to display the text for the Game Over screen
+     * on the overlay screen
+     */
+    function displayGameOverScreen() {
+        overlayScreen();
+        if (wonGame) {
+            ctx.fillText("You Win", canvas.width / 2, 3 * TILE_HEIGHT);
+        } else {
+            ctx.fillText("Game Over", canvas.width / 2, 2 * TILE_HEIGHT);
+            ctx.fillText("You Lost", canvas.width / 2, 3 * TILE_HEIGHT);
+        }
+        ctx.fillText("Press any key to restart", canvas.width / 2, 5 * TILE_HEIGHT);
+    }
+    /*
+     * ADDED - Listen for a key release to end the gameover section
+     * clear the canvas and and restart the game
+     */
+    function gameOverKeyupListener(e) {
+        gameOver = false;
+        doc.removeEventListener('keyup', gameOverKeyupListener);
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        reset();
     }
 
     /* Go ahead and load all of the images we know we're going to need to
@@ -173,7 +269,15 @@ var Engine = (function(global) {
         'images/water-block.png',
         'images/grass-block.png',
         'images/enemy-bug.png',
-        'images/char-boy.png'
+        'images/char-boy.png',
+        'images/char-princess-girl.png',
+        'images/char-cat-girl.png',
+        'images/small-stone.png',
+        'images/Key.png',
+        'images/Gem Orange.png',
+        'images/Gem Green.png',
+        'images/Gem Blue.png',
+        'images/gem-boy.png'
     ]);
     Resources.onReady(init);
 
