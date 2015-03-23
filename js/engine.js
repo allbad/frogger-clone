@@ -46,21 +46,27 @@ var Engine = (function (global) {
          * our update function since it may be used for smooth animation.
          */
 
-        if (gameOver) {
-            /* If the game is over, display the screen only once
-             * and wait for key press from the user to restart
-             */
+        /* ADDED - If the game is over, display the gameover screen
+         * and wait for key press from the user to restart
+         */
+         if (gameOver) {
+
             if (!gameOverDisplayed) {
                 displayGameOverScreen();
                 gameOverDisplayed = true;
                 doc.addEventListener('keyup', gameOverKeyupListener);
             }
+        /* ADDED - Otherwise if the game is at intro stage, display the intro screen
+         * and wait for key press from the user to start
+         */
         } else if (intro) {
             if (!introDisplayed) {
                 displayIntroScreen();
                 introDisplayed = true;
                 doc.addEventListener('keyup', introKeyupListener);
             }
+        /* ADDED - Otherwise do normal game update and render with score at bottom
+         */
         } else {
             update(dt);
             render();
@@ -160,7 +166,7 @@ var Engine = (function (global) {
                 ctx.drawImage(Resources.get(rowImages[row]), col * 101, row * 83);
             }
         }
-        // extra stone block to put the princess on
+        //  draw an extra stone block to put the princess on
         ctx.drawImage(Resources.get(rowImages[7]), 303, 0);
 
         renderEntities();
@@ -208,7 +214,7 @@ var Engine = (function (global) {
     }
 
     /*
-     * ADDED - Function to display instruction text
+     * ADDED - Function to display instruction text on top of canvas overlay
      */
     function displayIntroScreen() {
         overlayScreen();
@@ -220,18 +226,18 @@ var Engine = (function (global) {
         ctx.fillText("Press any key to Start", canvas.width / 2, 6 * TILE_HEIGHT);
     }
     /*
-     * ADDED - Listen for a key press to start game
+     * ADDED - Listen for a key release to end the intro section
+     * clear the canvas and and start the game
      */
-
     function introKeyupListener(e) {
         intro = false;
         doc.removeEventListener('keyup', introKeyupListener);
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "white";
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
         main();
     }
     /*
-     * ADDED - Function to display the text on the Game Over screen
+     * ADDED - Function to display the text for the Game Over screen
+     * on the overlay screen
      */
     function displayGameOverScreen() {
         overlayScreen();
@@ -244,13 +250,13 @@ var Engine = (function (global) {
         ctx.fillText("Press any key to restart", canvas.width / 2, 5 * TILE_HEIGHT);
     }
     /*
-     * ADDED - Listen for a key press to restart game
+     * ADDED - Listen for a key release to end the gameover section
+     * clear the canvas and and restart the game
      */
     function gameOverKeyupListener(e) {
         gameOver = false;
-        ctx.fillStyle = "white";
-        ctx.fill();
         doc.removeEventListener('keyup', gameOverKeyupListener);
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
         reset();
     }
 
